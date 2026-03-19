@@ -26,3 +26,6 @@ docker rmi $tag
 docker rmi mustakimali/justaml:latest
 
 echo "Tagged mustakimali/justaml:$dock_version"
+
+kubectl -n justaml set image deployments/justaml app=mustakimali/justaml:${dock_version}
+kubectl -n justaml rollout status deployments/justaml -w

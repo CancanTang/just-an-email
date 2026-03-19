@@ -28,9 +28,27 @@ namespace JustSending.Controllers
         }
 
         [Route("stats")]
-        public async Task<IActionResult> Stats([FromServices] StatsDbContext db, [FromServices] IDataStore store, int? date = null)
+        public async Task<IActionResult> Stats([FromServices] StatsDbContext db, [FromServices] IDataStore store, int date = -1)
         {
-            var stat = await db.StatsFindByDateOrNew(date);
+            var stat = await store.Get<Stats>(date.ToString());
+            if (stat == null)
+            {
+                stat = db.Statistics.FindById(date);
+                if (stat == null)
+                {
+                    stat = new Stats();
+                }
+                else
+                {
+                    var ttl = stat.Messages
+                    switch
+                    { <
+                        5 => TimeSpan.FromMinutes(1),
+                        _ => TimeSpan.FromHours(1)
+                    };
+                    await store.Set(date.ToString(), stat, ttl);
+                }
+            }
 
             ViewData["LastBuild"] = new DirectoryInfo(Directory.GetCurrentDirectory()).LastWriteTimeUtc.ToString("s");
             return View(stat);

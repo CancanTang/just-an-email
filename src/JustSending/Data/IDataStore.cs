@@ -12,15 +12,17 @@ namespace JustSending.Data
             DictionaryKeyPolicy = new JsonShortNamePolicy()
         };
 
-        protected Task<T?> GetAsync<T>(string id);
-        protected Task SetAsync<T>(string id, T data, TimeSpan ttl);
-        protected Task RemoveAsync<T>(string id);
-
+        protected Task<byte[]?> GetAsync(string id);
+        protected Task SetAsync(string id, byte[] data, TimeSpan ttl);
+        protected Task RemoveAsync(string id);
+        
         public async Task<T?> Get<T>(string id)
         {
             var key = GetKey<T>(id);
-            var data = await GetAsync<T>(key);
-            return data;
+            var data = await GetAsync(key);
+            return data == null
+                ? default
+                : JsonSerializer.Deserialize<T>(data, DefaultSerializerOption);
         }
 
         public async Task Set<T>(string id, T model, TimeSpan ttl)
@@ -29,11 +31,11 @@ namespace JustSending.Data
             var data = JsonSerializer.SerializeToUtf8Bytes(model, DefaultSerializerOption);
             await SetAsync(key, data, ttl);
         }
-
+        
         public async Task Remove<T>(string id)
         {
             var key = GetKey<T>(id);
-            await RemoveAsync<T>(key);
+            await RemoveAsync(key);
         }
 
         private static string GetKey<T>(string id) => $"{typeof(T).Name.ToLower()}-{id}";

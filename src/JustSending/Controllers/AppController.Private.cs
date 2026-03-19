@@ -23,9 +23,9 @@ namespace JustSending.Controllers
                 IdVerification = idVerification,
                 IsLiteSession = liteSession
             };
-            await _db.AddOrUpdateSession(session);
+            await _db.Set(sessionId, session);
 
-            await ScheduleSessionCleanup(session);
+            await ScheduleOrExtendSessionCleanup(sessionId, liteSession);
 
             // New ShareToken
             return await CreateShareToken(sessionId);
@@ -38,7 +38,7 @@ namespace JustSending.Controllers
             return token;
         }
 
-        private async Task<Message[]> GetMessagesInternal(string id, string id2, int fromSequence)
+        private async Task<Message[]> GetMessagesInternal(string id, string id2, int from)
         {
             using var span = _tracer.StartActiveSpan("get-message-internal");
             span.SetAttribute("id", id);
@@ -46,13 +46,28 @@ namespace JustSending.Controllers
 
             if (!await IsValidSession(id, id2))
             {
-                return [];
+                return Array.Empty<Message>();
             }
 
-            var expiredMessage = new Message { IsNotification = true, Text = "Message Expired" };
+            var expiredMessage = new Message {IsNotification = true, Text = "Message Expired"};
             var result = new List<Message>();
-            var messages = await _db.GetMessagesBySession(id, fromSequence);
-            return messages ?? [];
+            var count = await _db.Count<Message>(id);
+            for (int i = from + 1; i <= count; i++)
+            {
+                var messageId = await _db.Get<string>($"{id}-{i}");
+                if (messageId == null)
+                {
+                    result.Add(expiredMessage);
+                    continue;
+                }
+
+                var message = await _db.Get<Message>(messageId);
+                result.Add(message ?? expiredMessage);
+            }
+
+            result.Reverse();
+            
+            return result.ToArray();
         }
 
         private Task<bool> IsValidRequest(SessionModel model) => IsValidSession(model.SessionId, model.SessionVerification);
@@ -62,7 +77,7 @@ namespace JustSending.Controllers
             if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(id2))
                 return false;
 
-            var session = await _db.GetSessionById(id);
+            var session = await _db.Get<Session>(id);
             if (session == null || session.IdVerification != id2)
             {
                 return false;

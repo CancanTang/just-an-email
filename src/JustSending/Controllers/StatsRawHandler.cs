@@ -26,10 +26,15 @@ namespace JustSending.Controllers
             _dataStore = dataStore;
         }
 
-        [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any)]
         public async Task<ActionResult<StatYear[]>> Handle()
         {
-            var data = await _statContext.GetAll();
+            var data = await _dataStore.Get<StatYear[]>("stats");
+            if (data == null)
+            {
+                data = _statContext.GetAll().ToArray();
+
+                await _dataStore.Set("stats", data, TimeSpan.FromHours(1));
+            }
 
             return new JsonResult(data);
         }

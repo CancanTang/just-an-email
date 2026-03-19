@@ -23,8 +23,8 @@ namespace JustSending.Services
         {
             try
             {
-                await UpdateMetrics();
-                await _appDb.KvGet<int?>("does-not-exist");
+                UpdateMetrics();
+                await _appDb.GetInternal<int>("does-not-exist");
                 return HealthCheckResult.Healthy();
             }
             catch (Exception e)
@@ -34,10 +34,10 @@ namespace JustSending.Services
             }
         }
 
-        private async Task UpdateMetrics()
+        private void UpdateMetrics()
         {
-            var m = await _dbContext.StatsFindByDateOrNew(null);
-            if (m == null) return;
+            var m = _dbContext.Statistics.FindById(-1);
+            if (m == null)return;
 
             Metrics.TotalSessions.Set(m.Sessions);
             Metrics.TotalFiles.Set(m.Files);
